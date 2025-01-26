@@ -4,22 +4,21 @@ from email.mime.multipart import MIMEMultipart
 from email_validator import validate_email, EmailNotValidError
 
 def send_email(to_email, admin_name, request_details, subject, body):
-    from_email = 'Ruturajnavale1406@gmail.com'  # Replace with your email
-    password = 'dgfy rkwj efij xcbb'  # Replace with your app password
-
-    # Validate recipient's email address
+    from_email = 'Ruturajnavale1406@gmail.com'  
+    password = 'dgfy rkwj efij xcbb'  
+    
     try:
         validate_email(to_email)
     except EmailNotValidError as e:
         print(f"Invalid email address: {e}")
         return
 
-    # Check request details for missing keys and provide safe defaults
+    
     name = request_details.get('name', 'User')
     email = request_details.get('email', 'N/A')
     description = request_details.get('description', 'N/A')
 
-    # Build the HTML content based on the subject
+    
     if "approved" in subject.lower():
         html_content = f"""
         <html>
@@ -93,14 +92,14 @@ def send_email(to_email, admin_name, request_details, subject, body):
         </html>
         """
 
-    # Prepare the email
+    
     msg = MIMEMultipart()
     msg['Subject'] = subject
     msg['From'] = from_email
     msg['To'] = to_email
     msg.attach(MIMEText(html_content, 'html'))
 
-    # Send the email using SMTP
+    
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as server:
             server.starttls()  # Upgrade connection to secure
