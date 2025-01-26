@@ -4,14 +4,11 @@ from database import get_all_requests, update_request_status, insert_request, de
 from mail import send_email
 
 
-# Admin credentials
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# Predefined departments
 DEPARTMENTS = ["Digital", "IT", "HR", "Finance", "Operations"]
 
-# Items list
 ITEMS_LIST = [
     {"particular": "A3 ENVELOPE GREEN"},
     {"particular": "A3 PAPER"},
@@ -66,7 +63,7 @@ ITEMS_LIST = [
     {"particular": "WHITE INK"},
 ]
 
-# Global session state
+
 if 'is_user_logged_in' not in st.session_state:
     st.session_state.is_user_logged_in = False
     st.session_state.user_details = {}
@@ -74,20 +71,17 @@ if 'is_user_logged_in' not in st.session_state:
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-# Email validation function
+
 def validate_email(email):
-    """Validates email to ensure it ends with @gmail.com or @ceat.com"""
     email_regex = r'^[a-zA-Z0-9_.+-]+@(gmail\.com|ceat\.com)$'
     return re.match(email_regex, email) is not None
 
 
 def user_login():
-    """User login form"""
     st.title("User Login")
     emp_id = st.text_input("Employee ID", key="emp_id")
     email = st.text_input("Email", key="email")
 
-    # Directly use the department names from the DEPARTMENTS list
     department = st.selectbox("Department", [""] + DEPARTMENTS, key="department")
 
     if st.button("Login"):
@@ -110,58 +104,51 @@ def user_request_form():
     st.title("Request Form")
     user_name = st.text_input("Enter your Name")
 
-    # Automatically populate the email from the session
+    
     user_email = st.session_state.user_details.get("email", "")
 
-    # Add an empty item to the ITEMS_LIST for default empty selection
-    items_with_empty = [""] + [item["particular"] for item in ITEMS_LIST]  # Add an empty string as the first item
+    items_with_empty = [""] + [item["particular"] for item in ITEMS_LIST]  
 
-    # Set default selection to the empty option
     item = st.selectbox("Select an Item", items_with_empty, index=0)  # Default to the empty box
 
     quantity = st.number_input("Enter Quantity", min_value=1)
 
-    # When the user submits the form
     if st.button("Submit Request"):
-        # Check if the name is empty
+       
         if not user_name.strip():
             st.error("Please enter your name.")
-        elif not item:  # Check if no item is selected
+        elif not item:  
             st.error("Please select an item before submitting the request.")
         else:
-            # Insert the request into the database
+           
             insert_request(user_name, user_email, f"Item: {item}, Quantity: {quantity}")
 
-            # Send email after inserting the request
+           
             request_details = {
                 "name": user_name,
                 "email": user_email,
-                "description": f"Item: {item}, Quantity: {quantity}"  # Update this as per the item selected
+                "description": f"Item: {item}, Quantity: {quantity}"  
             }
             subject = "Request Submission"
             body = f"Request details:\nName: {user_name}\nItem: {item}\nQuantity: {quantity}"
             send_email(user_email, "System", request_details, subject, body)
 
-            # Display success message
+            
             st.success("Your request has been submitted successfully!")
 
-            # Set session state flag to show that the request has been submitted
             st.session_state.request_submitted = True
 
-    # Back Button to go back to the previous page (e.g., Admin Dashboard or Login Page)
+    
     if st.button("Back"):
-        # Reset session state if necessary
+        
         st.session_state.is_user_logged_in = False
         st.session_state.request_submitted = False
-        # Redirect back to the page (e.g., admin dashboard or login page)
-        st.session_state.page = "User Login"  # This can be changed to the page you want to redirect to
-
-        # Use session state to reload and display the correct page
-        # The next time the app is rerun, it will go to the "User Login" page or any page set
-
+        
+        st.session_state.page = "User Login"  
+       
 
 def admin_login():
-    """Admin login form"""
+   
     st.sidebar.title("Admin Login")
     username = st.sidebar.text_input("Username", key="admin_username")
     password = st.sidebar.text_input("Password", type="password", key="admin_password")
@@ -178,10 +165,10 @@ def admin_login():
 
 
 def admin_dashboard():
-    """Admin dashboard for managing requests"""
+  
     st.title("Admin Dashboard")
 
-    # Display all requests
+   
     requests = get_all_requests()
     if requests:
         for req in requests:
@@ -192,10 +179,10 @@ def admin_dashboard():
             description = req['description']
             status = req['status']
 
-            # Display the request details
+            
             st.write(f"Request ID: {req_id} | Emp ID: {emp_id} | Email: {email} | Description: {description} | Status: {status}")
 
-            # Radio buttons for status update with a unique key
+            
             status_update = st.radio(
                 f"Update Status for Request {req_id}",
                 ["Pending", "Approved", "Rejected"],
@@ -203,7 +190,7 @@ def admin_dashboard():
                 key=f"status_{req_id}",
             )
 
-            # Update status button
+            
             if st.button(f"Update Status {req_id}", key=f"update_{req_id}"):
                 update_request_status(req_id, status_update)
                 subject = f"Request {status_update.capitalize()}"
@@ -211,7 +198,7 @@ def admin_dashboard():
                 send_email(email, "Admin", req, subject, body)
                 st.success(f"Status for Request {req_id} updated and email sent!")
 
-            # Delete request button
+            
             if st.button(f"Delete Request {req_id}", key=f"delete_{req_id}"):
                 delete_request(req_id)
                 st.success(f"Request ID {req_id} deleted!")
@@ -220,9 +207,9 @@ def admin_dashboard():
     else:
         st.info("No requests available.")
 
-    # Admin message to a user
+   
     st.subheader("Send Message to User")
-    user_emails = [req['email'] for req in requests if req['email']]  # Get unique emails from requests
+    user_emails = [req['email'] for req in requests if req['email']]  
     selected_email = st.selectbox("Select User Email", [""] + list(set(user_emails)))
 
     message_content = st.text_area("Enter your message", height=150)
@@ -230,9 +217,9 @@ def admin_dashboard():
     if st.button("Send Message"):
         if selected_email and message_content.strip():
             subject = "Message from Admin"
-            body = f"{message_content}"  # Include the admin's message in the email body
+            body = f"{message_content}"  
             request_details = {
-                "name": "User",  # Default name since we don't have it
+                "name": "User",  
                 "email": selected_email,
                 "description": "Admin Message"
             }
@@ -243,18 +230,17 @@ def admin_dashboard():
 
 
 def main():
-    """Main app function to handle routing"""
-    # Check if user is logged in and handle page selection
+   
     if not st.session_state.is_user_logged_in:
         page = st.sidebar.selectbox("Select Page", ["User Login", "Admin Login"])
     else:
-        page = st.session_state.page if 'page' in st.session_state else "User Login"  # Default to User Login page when logged in
+        page = st.session_state.page if 'page' in st.session_state else "User Login"  
 
     if page == "User Login":
         if not st.session_state.is_user_logged_in:
             user_login()
         else:
-            user_request_form()  # Show user request form
+            user_request_form()  
     elif page == "Admin Login":
         if not st.session_state.is_admin:
             admin_login()
