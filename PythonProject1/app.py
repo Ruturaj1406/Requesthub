@@ -98,7 +98,7 @@ def user_login():
 
 
 
-import streamlit as st
+
 
 def user_request_form():
     """User request form"""
@@ -164,22 +164,25 @@ def user_request_form():
         elif not selected_items:
             st.error("Please select at least one item before submitting the request.")
         else:
-            # Process and submit each selected item
-            for item_name, details in selected_items.items():
-                quantity = details["quantity"]
+            # Format selected items into a single string
+            formatted_description = ", ".join(
+                [f"{item_name} (Quantity: {details['quantity']})" for item_name, details in selected_items.items()]
+            )
 
-                # Insert into the database
-                insert_request(user_name, user_email, f"Item: {item_name}, Quantity: {quantity}")
+            # Insert into the database
+            insert_request(user_name, user_email, formatted_description)
 
-                # Send email notification
-                request_details = {
-                    "name": user_name,
-                    "email": user_email,
-                    "description": f"Item: {item_name}, Quantity: {quantity}",
-                }
-                subject = "Request Submission"
-                body = f"Request details:\nName: {user_name}\nItem: {item_name}\nQuantity: {quantity}"
-                send_email(user_email, "System", request_details, subject, body)
+            # Send email notification
+            request_details = {
+                "name": user_name,
+                "email": user_email,
+                "description": formatted_description,
+            }
+            subject = "Request Submission"
+            body = (
+                f"Request details:\nName: {user_name}\nItems: {formatted_description}"
+            )
+            send_email(user_email, "System", request_details, subject, body)
 
             st.success("Your requests have been submitted successfully!")
 
@@ -191,11 +194,6 @@ def user_request_form():
         st.session_state.is_user_logged_in = False
         st.session_state.request_submitted = False
         st.session_state.page = "User Login"
-
-
-
-
-
 
 
 
@@ -216,45 +214,70 @@ def admin_login():
 
 
 def admin_dashboard():
+    """Admin Dashboard for managing requests and communicating with users."""
     st.title("Admin Dashboard")
 
+    # Fetch all requests from the database
     requests = get_all_requests()
+
     if requests:
         for req in requests:
-            # Access fields from the database response
-            req_id = req['id']
-            emp_id = req['emp_id'] if 'emp_id' in req else 'N/A'
-            email = req['email']
-            description = req['description']
-            status = req['status']
+            # Extract request details
+            req_id = req.get("id", "N/A")
+            emp_id = req.get("emp_id", "N/A")
+            email = req.get("email", "N/A")
+            status = req.get("status", "Pending")
 
-            st.write(
-                f"Request ID: {req_id} | Emp ID: {emp_id} | Email: {email} | Description: {description} | Status: {status}")
+            # Description parsing for multiple items
+            description = req.get("description", "N/A")
+            if isinstance(description, list):
+                description = "\n".join(description)  # Combine all selected items into a single string
 
-            status_update = st.radio(
-                f"Update Status for Request {req_id}",
-                ["Pending", "Approved", "Rejected"],
-                index=["Pending", "Approved", "Rejected"].index(status),
-                key=f"status_{req_id}",
-            )
+            # Display request details
+            st.write(f"### Request ID: {req_id}")
+            st.write(f"- **Emp ID**: {emp_id}")
+            st.write(f"- **Email**: {email}")
+            st.write(f"- **Description**:\n{description}")
+            st.write(f"- **Status**: {status}")
 
-            if st.button(f"Update Status {req_id}", key=f"update_{req_id}"):
-                update_request_status(req_id, status_update)
-                subject = f"Request {status_update.capitalize()}"
-                body = f"Your request has been {status_update.lower()}.\n\nRequest Details:\nDescription: {description}"
-                send_email(email, "Admin", req, subject, body)
-                st.success(f"Status for Request {req_id} updated and email sent!")
+            # Columns for status update and actions
+            col1, col2, col3 = st.columns([3, 2, 2])
 
-            if st.button(f"Delete Request {req_id}", key=f"delete_{req_id}"):
-                delete_request(req_id)
-                st.success(f"Request ID {req_id} deleted!")
+            with col1:
+                # Status update options
+                status_update = st.radio(
+                    f"Update Status for Request {req_id}",
+                    ["Pending", "Approved", "Rejected"],
+                    index=["Pending", "Approved", "Rejected"].index(status),
+                    key=f"status_{req_id}",
+                )
 
-        st.write("---")
+            with col2:
+                # Button to update the status
+                if st.button(f"Update Status {req_id}", key=f"update_{req_id}"):
+                    update_request_status(req_id, status_update)
+                    subject = f"Request {status_update.capitalize()}"
+                    body = (
+                        f"Your request has been {status_update.lower()}.\n\n"
+                        f"Request Details:\n{description}"
+                    )
+                    send_email(email, "Admin", req, subject, body)
+                    st.success(f"Status for Request {req_id} updated and email sent!")
+
+            with col3:
+                # Button to delete the request
+                if st.button(f"Delete Request {req_id}", key=f"delete_{req_id}"):
+                    delete_request(req_id)
+                    st.success(f"Request ID {req_id} deleted!")
+
+            st.write("---")  # Divider between requests
+
     else:
         st.info("No requests available.")
 
+    # Send message functionality
     st.subheader("Send Message to User")
-    user_emails = [req['email'] for req in requests if req['email']]
+    user_emails = [req["email"] for req in requests if req.get("email")]
     selected_email = st.selectbox("Select User Email", [""] + list(set(user_emails)))
 
     message_content = st.text_area("Enter your message", height=150)
@@ -266,12 +289,13 @@ def admin_dashboard():
             request_details = {
                 "name": "User",
                 "email": selected_email,
-                "description": "Admin Message"
+                "description": "Admin Message",
             }
             send_email(selected_email, "Admin", request_details, subject, body)
             st.success(f"Message sent to {selected_email} successfully!")
         else:
             st.error("Please select an email and enter a message before sending.")
+
 
 
 def main():
